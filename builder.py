@@ -1,5 +1,5 @@
 import networkx as nx
-from typing import List, TypeVar
+from typing import List
 from icecream import ic
 from application import HostApp, SinkApp, RelayApp, GatewayApp, AppType, create_gateway, create_relay
 from timeline import Timeline, TimelineState, TimelineAction
@@ -14,10 +14,7 @@ class ScenarioBuilder:
 
     def build(self):
         scheduler = ScenarioScheduler(self.application)
-        scenario = scheduler.process(self._process_timeline)
-
-        paths = [s.snapshot.multicast_routes for s in scenario.values()]
-        ic(paths)
+        return scheduler.process(self._process_timeline)
 
     def _process_timeline(self, snapshot: TimelineState, action: TimelineAction):
         self._running_application(snapshot, action)
@@ -26,11 +23,16 @@ class ScenarioBuilder:
 
     def _release_application(self, snapshot: TimelineState, action):
         for host_id, host in action.shutdown_hosts.items():
+            assert not host.sinks, "host must empty"
             snapshot.shutdown(host)
 
         commands = []
 
         for sink_id, sink in action.shutdown_sinks.items():
+            for host in snapshot.running_hosts.values():
+                if sink_id in host.sinks:
+                    snapshot.leave(host.id, sink_id)
+
             for gateway in snapshot.running_gateways.values():
                 if sink_id in gateway.sinks:
                     commands.append((gateway, sink))
@@ -62,7 +64,6 @@ class ScenarioBuilder:
         for gateway in snapshot.running_gateways.values():
             if nx.has_path(self.mgraph, gateway.node, sink.node):
                 snapshot.bind(gateway.id, sink.id)
-                snapshot.path(nx.shortest_path(self.mgraph, gateway.node, sink.node))
                 return True
 
         return False
@@ -70,7 +71,7 @@ class ScenarioBuilder:
     def _is_reachable_host(self, snapshot: TimelineState, sink: SinkApp) -> bool:
         for host in snapshot.running_hosts.values():
             if nx.has_path(self.mgraph, host.node, sink.node):
-                snapshot.path(nx.shortest_path(self.mgraph, host.node, sink.node))
+                snapshot.join(host.id, sink.id)
                 return True
 
         return False
@@ -92,8 +93,6 @@ class ScenarioBuilder:
         relay = self._single_amt_relay_discovery(snapshot, host, sink)
 
         snapshot.connect(gateway.id, relay.id, sink.id)
-        snapshot.path(nx.shortest_path(self.mgraph, host.node, relay.node))
-        snapshot.path(nx.shortest_path(self.mgraph, gateway.node, sink.node))
 
     def _single_amt_gateway(self, snapshot: TimelineState, sink: SinkApp) -> GatewayApp:
         gateway_node = min(

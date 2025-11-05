@@ -30,15 +30,15 @@ class ScenarioGenerator:
         G = nx.Graph()
 
         for j, paths in enumerate(config.topology.values()):
-            for path in paths:
+            for k, path in enumerate(paths):
                 node_and_links = re.split("( -- | - )", path)
 
-                for i in range(0, len(node_and_links) - 2, 2):
-                    u = node_and_links[i]
-                    v = node_and_links[i + 2]
-                    e = node_and_links[i + 1]
+                for i, index in enumerate(range(0, len(node_and_links) - 2, 2)):
+                    u = node_and_links[index]
+                    v = node_and_links[index + 2]
+                    e = node_and_links[index + 1]
 
-                    G.add_edge(u, v, is_multicast_enabled=e == " - ", subnet=f"10.{j}.{i}.0")
+                    G.add_edge(u, v, is_multicast_enabled=e == " - ", subnet=f"{10 + k}.{10 + j}.{i + 1}.0")
 
         def is_multicast_enabled(u, v):
             return G[u][v]["is_multicast_enabled"]

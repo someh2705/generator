@@ -1,5 +1,5 @@
 from dataclasses import dataclass
-from generator import AppConfig, Node
+from generator import AppConfig, Node, Address
 from typing import NewType, List, TypeVar
 
 AppId = NewType("AppId", str)
@@ -9,12 +9,15 @@ AppId = NewType("AppId", str)
 class HostApp:
     id: AppId
     node: Node
+    address: Address
+    sinks: List[AppId]
 
 
 @dataclass
 class SinkApp:
     id: AppId
     node: Node
+    address: Address
 
 
 @dataclass
@@ -30,6 +33,13 @@ class GatewayApp:
     sinks: List[AppId]
 
 
+@dataclass
+class Tunnel:
+    host_id: AppId
+    relay_id: AppId
+    gateway_id: AppId
+
+
 counter = 0
 
 
@@ -41,12 +51,12 @@ def _create_id(prefix: str) -> AppId:
 
 def create_host(app: AppConfig) -> HostApp:
     id = _create_id("host")
-    return HostApp(id, app.node)
+    return HostApp(id, app.node, app.address, [])
 
 
 def create_sink(app: AppConfig) -> SinkApp:
     id = _create_id("sink")
-    return SinkApp(id, app.node)
+    return SinkApp(id, app.node, app.address)
 
 
 def create_relay(node: Node) -> RelayApp:

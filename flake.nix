@@ -22,6 +22,7 @@
         ];
 
         python = unstable.python3.withPackages (ps: with ps; [
+          pyyaml
           addict
           networkx
           icecream

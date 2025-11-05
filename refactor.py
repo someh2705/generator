@@ -1,4 +1,5 @@
 import argparse
+from render import ScenarioRender
 from generator import ScenarioGenerator
 from builder import ScenarioBuilder
 
@@ -7,7 +8,8 @@ def main():
     args = parse()
     generator = ScenarioGenerator(args.meta)
     builder = ScenarioBuilder(generator)
-    builder.build()
+    scenario = builder.build()
+    ScenarioRender(generator, scenario)
 
 
 def parse():

@@ -16,6 +16,16 @@ def _safe_delete(d, k):
     del d[k]
 
 
+def _safe_append(s, v):
+    assert v not in s, "safe append error"
+    s.append(v)
+
+
+def _safe_remove(s, v):
+    assert v in s, "safe remove error"
+    s.remove(v)
+
+
 def _safe_replace(d, k, v):
     assert d.get(k, None) is not None and v is not None, "safe replace error"
     d[k] = v
@@ -45,17 +55,31 @@ class TimelineState:
         if isinstance(app, SinkApp):
             _safe_delete(self.running_sinks, app.id)
 
+    def join(self, host_id: AppId, sink_id: AppId):
+        host = self.running_hosts[host_id]
+        sinks = copy.deepcopy(host.sinks)
+        _safe_append(sinks, sink_id)
+        host = replace(host, sinks=sinks)
+        _safe_replace(self.running_hosts, host_id, host)
+
+    def leave(self, host_id: AppId, sink_id: AppId):
+        host = self.running_hosts[host_id]
+        sinks = copy.deepcopy(host.sinks)
+        _safe_remove(sinks, sink_id)
+        host = replace(host, sinks=sinks)
+        _safe_replace(self.running_hosts, host_id, host)
+
     def bind(self, gateway_id: AppId, sink_id: AppId):
         gateway = self.running_gateways[gateway_id]
         sinks = copy.deepcopy(gateway.sinks)
-        sinks.append(sink_id)
+        _safe_append(sinks, sink_id)
         gateway = replace(gateway, sinks=sinks)
         _safe_replace(self.running_gateways, gateway.id, gateway)
 
     def unbind(self, gateway_id: AppId, sink_id: AppId):
         gateway = self.running_gateways[gateway_id]
         sinks = copy.deepcopy(gateway.sinks)
-        sinks.remove(sink_id)
+        _safe_remove(sinks, sink_id)
         gateway = replace(gateway, sinks=sinks)
         if not sinks:
             relay_id = self.running_tunnels[gateway.id]
@@ -79,16 +103,12 @@ class TimelineState:
     def connect(self, gateway_id: AppId, relay_id: AppId, sink_id: AppId):
         gateway = self.running_gateways[gateway_id]
         sinks = copy.deepcopy(gateway.sinks)
-        sinks.append(sink_id)
+        _safe_append(sinks, sink_id)
         gateway = replace(gateway, sinks=sinks)
 
         _safe_replace(self.running_gateways, gateway_id, gateway)
         _safe_assign(self.running_tunnels, gateway_id, relay_id)
         _safe_assign(self.running_tunnels, relay_id, gateway_id)
-
-    def path(self, path):
-        # TODO: make sure calculate every path
-        self.multicast_routes.append(path)
 
 
 @dataclass
