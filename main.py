@@ -4,11 +4,12 @@ import argparse
 import tomllib
 import re
 import addict
+import copy
 import networkx as nx
 from collections import defaultdict
 from typing import List, Dict
 from icecream import ic
-from dataclasses import dataclass
+from dataclasses import dataclass, field
 
 is_multihop = None
 OnOff = "OnOff"
@@ -69,12 +70,29 @@ class Tunnel:
 
 @dataclass
 class Timeline:
-    time: float
-    booting_sinks: List[PacketSinkApp]
-    booting_hosts: List[OnOffApp]
+    time: float = -1.0
+    # input actions
+    booting_sinks: List[PacketSinkApp] = field(default_factory=list)
+    booting_hosts: List[OnOffApp] = field(default_factory=list)
+    shutdown_hosts: List[OnOffApp] = field(default_factory=list)
+    shutdown_sinks: List[PacketSinkApp] = field(default_factory=list)
 
-    shutdown_hosts: List[OnOffApp]
-    shutdown_sinks: List[PacketSinkApp]
+    # after states
+    running_hosts: Dict[str, OnOffApp] = field(default_factory=dict)
+    running_sinks: Dict[str, PacketSinkApp] = field(default_factory=dict)
+    running_relays: Dict[str, RelayApp] = field(default_factory=dict)
+    running_gateways: Dict[str, GatewayApp] = field(default_factory=dict)
+    running_tunnels: Dict[str, Tunnel] = field(default_factory=dict)
+
+    def copy(self):
+        return copy.deepcopy(self)
+
+    def copy_state(self, before):
+        self.running_hosts = copy.deepcopy(before.running_hosts)
+        self.running_sinks = copy.deepcopy(before.running_sinks)
+        self.running_relays = copy.deepcopy(before.running_relays)
+        self.running_gateways = copy.deepcopy(before.running_gateways)
+        self.running_tunnels = copy.deepcopy(before.running_tunnels)
 
 
 class ScenarioGenerator:
@@ -140,20 +158,17 @@ class ScenarioBuilder:
 
     def schedule(self):
         self.scenarios = []
-
-        self._running_hosts: Dict[str, OnOffApp] = {}
-        self._running_sinks: Dict[str, PacketSinkApp] = {}
-        self._running_relays: Dict[str, RelayApp] = {}
-        self._running_gateways: Dict[str, GatewayApp] = {}
-        self._running_tunnels: Dict[str, Tunnel] = {}
-
         self._timeline = self._schedule_timeline()
 
-        for time, timeline in sorted(self._timeline.items(), key=lambda t: t[0]):
-            self._process_schedule(time, timeline)
+        before = copy.deepcopy(self._timeline[-1.0])
+        for time, after in sorted(self._timeline.items(), key=lambda t: t[0]):
+            after.copy_state(before)
+            self._process_schedule(time, before, after)
+            self._timeline[time] = copy.deepcopy(after)
+            before = copy.deepcopy(after)
 
     def _schedule_timeline(self):
-        timeline: Dict[float, Timeline] = defaultdict(lambda: Timeline(-1.0, [], [], [], []))
+        timeline: Dict[float, Timeline] = defaultdict(Timeline)
 
         for app in self.application:
             if app.type == OnOff:
@@ -167,27 +182,29 @@ class ScenarioBuilder:
                 timeline[app.start].booting_sinks.append(sink)
                 timeline[app.stop].shutdown_sinks.append(sink)
 
+        for k, v in timeline.items():
+            v.time = k
+
         return timeline
 
-    def _process_schedule(self, time, timeline: Timeline):
-        self._routing_multicast(time, timeline)
-        self._release_application(time, timeline)
+    def _process_schedule(self, time, before: Timeline, after: Timeline):
+        self._routing_multicast(time, before, after)
+        self._release_application(time, before, after)
 
-    def _release_application(self, time, timeline):
+    def _release_application(self, time, before, after):
         commands = set()
 
-        for app in timeline.shutdown_hosts:
-            self._safe_assign(self._running_hosts, app.id, None)
+        for app in before.shutdown_hosts:
+            self._safe_assign(after.running_hosts, app.id, None)
 
-        # TODO: shutdown hosts
-        for app in timeline.shutdown_sinks:
-            for tunnel in self._running_tunnels.values():
-                gateway = self._running_gateways[tunnel.gateway_id]
+        for app in before.shutdown_sinks:
+            for tunnel in before.running_tunnels.values():
+                gateway = before.running_gateways[tunnel.gateway_id]
                 if app.id in gateway.sinks:
                     commands.add((tunnel.id, gateway.id, app.id))
 
         for tunnel_id, gateway_id, app_id in commands:
-            gateway = self._running_gateways[gateway_id]
+            gateway = after.running_gateways[gateway_id]
 
             if len(gateway.sinks) > 1:
                 gateway.sinks.remove(app_id)
@@ -224,8 +241,6 @@ class ScenarioBuilder:
                 paths.append(self._routing_reachable_multicast_network(host, app))
             else:
                 paths.append(self._routing_unreachable_multicast_network(host, app))
-
-        ic(paths)
 
     def _is_tunnel_available(self, app) -> Tunnel | None:
         tunnels = [
