@@ -73,8 +73,33 @@
     "seoul6 - busan5"
   ]
 
-[policy]
-  relay_max_sessions = 2
+[policy.host]
+  size = 1400
+  bytes = 25000000
+  rate = "1Gbps"
+  on = 0.2
+  off = 4.8
+
+[policy.relay]
+  mode = "queue"
+  max = 100
+
+[policy."host-router"]
+  size = 1400
+  rate = "10Gbps"
+  delay = "2ms"
+
+[policy."gateway-router"]
+  rate = "10Gbps"
+  delay = "2ms"
+
+[policy."relay-router"]
+  rate = "200Mbps"
+  delay = "2ms"
+
+[policy."sink-router"]
+  rate = "1Gbps"
+  delay = "40ms"
 
 [[application]]
   type = "OnOff"

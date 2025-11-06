@@ -82,19 +82,7 @@ class ScenarioBuilder:
             key=lambda host: nx.shortest_path_length(self.graph, host.node, sink.node),
         )
 
-    # ================================
-    #
-    #  RFC 7450 AMT Version
-    #
-    # ===============================
-    def _single_amt_routing(self, snapshot: TimelineState, sink: SinkApp):
-        host = self._find_host(snapshot, sink)
-        gateway = self._single_amt_gateway(snapshot, sink)
-        relay = self._single_amt_relay_discovery(snapshot, host, sink)
-
-        snapshot.connect(host.id, gateway.id, relay.id, sink.id)
-
-    def _single_amt_gateway(self, snapshot: TimelineState, sink: SinkApp) -> GatewayApp:
+    def _find_amt_gateway(self, snapshot: TimelineState, sink: SinkApp) -> GatewayApp:
         gateway_node = min(
             [
                 node
@@ -105,7 +93,19 @@ class ScenarioBuilder:
         )
         return snapshot.spawn_gateway(gateway_node)
 
-    def _single_amt_relay_discovery(self, snapshot: TimelineState, host: HostApp, sink):
+    # ================================
+    #
+    #  RFC 7450 AMT Version
+    #
+    # ===============================
+    def _single_amt_routing(self, snapshot: TimelineState, sink: SinkApp):
+        host = self._find_host(snapshot, sink)
+        gateway = self._find_amt_gateway(snapshot, sink)
+        relay = self._single_amt_relay_discovery(snapshot, host, sink)
+
+        snapshot.connect(host.id, gateway.id, relay.id, sink.id)
+
+    def _single_amt_relay_discovery(self, snapshot: TimelineState, host: HostApp, sink: SinkApp):
         relay_node = min(
             [
                 node
@@ -118,6 +118,19 @@ class ScenarioBuilder:
             ),
         )
         return snapshot.spawn_relay(relay_node)
+
+    # ================================
+    #
+    #  Multi-Hop AMT Version
+    #
+    # ===============================
+    def _multihop_amt_routing(self, snapshot: TimelineState, sink: SinkApp):
+        host = self._find_host(snapshot, sink)
+        gateway = self._find_amt_gateway(snapshot, sink)
+        relay = self._multihop_amt_relay_discovery(snapshot, host, sink)
+
+    def _multihop_amt_relay_discovery(self, snapshot: TimelineState, host: HostApp, sink: SinkApp):
+        pass
 
 
 def _nearest_node(graph, apps: List[AppType], target) -> AppType:
