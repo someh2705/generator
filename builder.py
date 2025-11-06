@@ -92,7 +92,7 @@ class ScenarioBuilder:
         gateway = self._single_amt_gateway(snapshot, sink)
         relay = self._single_amt_relay_discovery(snapshot, host, sink)
 
-        snapshot.connect(gateway.id, relay.id, sink.id)
+        snapshot.connect(host.id, gateway.id, relay.id, sink.id)
 
     def _single_amt_gateway(self, snapshot: TimelineState, sink: SinkApp) -> GatewayApp:
         gateway_node = min(

@@ -1,6 +1,6 @@
 import copy
 from generator import Node
-from application import AppId, HostApp, SinkApp, RelayApp, GatewayApp, create_gateway, create_relay
+from application import AppId, HostApp, SinkApp, RelayApp, GatewayApp, Tunnel, create_gateway, create_relay
 from icecream import ic
 from typing import Dict, List
 from dataclasses import dataclass, field, replace
@@ -37,7 +37,7 @@ class TimelineState:
     running_sinks: Dict[AppId, SinkApp] = field(default_factory=dict)
     running_relays: Dict[AppId, RelayApp] = field(default_factory=dict)
     running_gateways: Dict[AppId, GatewayApp] = field(default_factory=dict)
-    running_tunnels: Dict[AppId, AppId] = field(default_factory=dict)
+    running_tunnels: List[Tunnel] = field(default_factory=list)
 
     multicast_routes: List = field(default_factory=list)
 
@@ -82,11 +82,11 @@ class TimelineState:
         _safe_remove(sinks, sink_id)
         gateway = replace(gateway, sinks=sinks)
         if not sinks:
-            relay_id = self.running_tunnels[gateway.id]
+            tunnel = self._find_tunnel(gateway_id=gateway_id)
+            relay_id = tunnel.relay_id
             _safe_delete(self.running_gateways, gateway.id)
             _safe_delete(self.running_relays, relay_id)
-            _safe_delete(self.running_tunnels, gateway.id)
-            _safe_delete(self.running_tunnels, relay_id)
+            _safe_remove(self.running_tunnels, tunnel)
         else:
             _safe_replace(self.running_gateways, gateway.id, gateway)
 
@@ -100,15 +100,21 @@ class TimelineState:
         _safe_assign(self.running_relays, relay.id, relay)
         return relay
 
-    def connect(self, gateway_id: AppId, relay_id: AppId, sink_id: AppId):
+    def connect(self, host_id: AppId, gateway_id: AppId, relay_id: AppId, sink_id: AppId):
         gateway = self.running_gateways[gateway_id]
         sinks = copy.deepcopy(gateway.sinks)
         _safe_append(sinks, sink_id)
         gateway = replace(gateway, sinks=sinks)
 
         _safe_replace(self.running_gateways, gateway_id, gateway)
-        _safe_assign(self.running_tunnels, gateway_id, relay_id)
-        _safe_assign(self.running_tunnels, relay_id, gateway_id)
+        _safe_append(self.running_tunnels, Tunnel(host_id, relay_id, gateway_id))
+
+    def _find_tunnel(self, relay_id: AppId | None = None, gateway_id: AppId | None = None) -> Tunnel:
+        for tunnel in self.running_tunnels:
+            if tunnel.gateway_id == gateway_id or tunnel.relay_id == relay_id:
+                return tunnel
+        else:
+            raise KeyError()
 
 
 @dataclass

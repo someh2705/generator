@@ -59,6 +59,17 @@ class ScenarioRender:
         for host in scenario.snapshot.running_hosts.values():
             for sink_id in host.sinks:
                 sink = scenario.snapshot.running_sinks[sink_id]
-                paths.append(nx.shortest_path(self.graph, host.node, sink.node))
+                paths.append(nx.shortest_path(self.mgraph, host.node, sink.node))
 
-        ic(paths)
+        for tunnel in scenario.snapshot.running_tunnels:
+            host = scenario.snapshot.running_hosts[tunnel.host_id]
+            relay = scenario.snapshot.running_relays[tunnel.relay_id]
+            gateway = scenario.snapshot.running_gateways[tunnel.gateway_id]
+
+            paths.append(nx.shortest_path(self.mgraph, host.node, relay.node))
+
+            for sink_id in gateway.sinks:
+                sink = scenario.snapshot.running_sinks[sink_id]
+                paths.append(nx.shortest_path(self.mgraph, gateway.node, sink.node))
+
+        ic(scenario.time, paths)
