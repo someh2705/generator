@@ -1,14 +1,14 @@
 # --------------------------------------------------------------------------------------------------------------
 #
-#        seoul1 - seoul2 - seoul3 - seoul4 - gateway3                                          
-#          |        |                  |                                                         
+#        seoul1 - seoul2 - seoul3 - seoul4 - gateway3
+#          |        |                  |
 #        sink4    sink3             seoul5                                             sink1   relay2
-#                                      |                                                 |        |        
+#                                      |                                                 |        |
 #                relay5 - seoul7 -- seoul6                                 gateway1 - osaka3 - osaka4 - osaka5 - relay1
 #                                      |                                                 |                 |
 #                                   busan5                                            osaka2            osaka6 - host1
-#                                      |                                                 |              
-#        busan1 - busan2 - busan3 - busan4 -- sea4 -- sea5 -- sea6 -- sea7 -- sea8 -- osaka1             
+#                                      |                                                 |
+#        busan1 - busan2 - busan3 - busan4 -- sea4 -- sea5 -- sea6 -- sea7 -- sea8 -- osaka1
 #           |                ||                                                          ||
 #        relay4             sea1                                                        sea9
 #                            ||                                                          ||
@@ -28,7 +28,7 @@
 #    gateway3을 사용해서 relay2와 연결 (gateway3-relay2 연결중)
 # 4. sink4는 (gateway3-relay2) 연결로 multicast 수신 가능하므로 연결하지 않음
 # 5. sink5는 gateway4를 선택해서 relay2에 접속 시도
-# 
+#
 #    - multihop이면?
 #    현재 터널링이 되어있는 (gateway2-relay2), (gateway3-relay2)를 host로 두고 relay discovery
 #    그러면 relay3와 relay4가 선택되지만 gateway4와 가까운 relay4가 선택 됨.
@@ -36,109 +36,111 @@
 #
 # --------------------------------------------------------------------------------------------------------------
 [topology]
-  seoul = [
-    "seoul1 - seoul2 - seoul3 - seoul4 - seoul5 - seoul6 -- seoul7",
-    "seoul2 - sink3",
-    "seoul1 - sink4",
-    "seoul4 - gateway3",
-    "seoul7 - relay5"
-  ]
-  busan = [
-    "busan1 - busan2 - busan3 - busan4 - busan5",
-    "busan5 - relay4"
-  ]
-  jeju = [
-    "jeju1 - jeju2 - jeju3 - jeju4 - jeju5",
-    "jeju2 - sink5",
-    "jeju5 - gateway4"
-  ]
-  osaka = [
-    "osaka1 - osaka2 - osaka3 - osaka4 - osaka5 - osaka6",
-    "osaka6 - host1",
-    "osaka3 - sink1",
-    "osaka3 - gateway1",
-    "osaka5 - relay1",
-    "osaka4 - relay2"
-  ]
-  fukuoka = [
-    "fukuoka1 - fukuoka2 - fukuoka3 - fukuoka4",
-    "fukuoka3 - sink2",
-    "fukuoka2 - gateway2",
-    "fukuoka4 - relay3"
-  ]
-  other = [
-    "busan3 -- sea1 -- sea2 -- sea3 -- jeju4",
-    "busan4 -- sea4 -- sea5 -- sea6 -- sea7 -- sea8 -- osaka1",
-    "osaka1 -- sea9 -- fukuoka1",
-    "seoul6 - busan5"
-  ]
+seoul = [
+  "seoul1 - seoul2 - seoul3 - seoul4 - seoul5 - seoul6 -- seoul7",
+  "seoul2 - sink3",
+  "seoul1 - sink4",
+  "seoul4 - gateway3",
+  "seoul7 - relay5",
+]
+busan = ["busan1 - busan2 - busan3 - busan4 - busan5", "busan5 - relay4"]
+jeju = [
+  "jeju1 - jeju2 - jeju3 - jeju4 - jeju5",
+  "jeju2 - sink5",
+  "jeju5 - gateway4",
+]
+osaka = [
+  "osaka1 - osaka2 - osaka3 - osaka4 - osaka5 - osaka6",
+  "osaka6 - host1",
+  "osaka3 - sink1",
+  "osaka3 - gateway1",
+  "osaka5 - relay1",
+  "osaka4 - relay2",
+]
+fukuoka = [
+  "fukuoka1 - fukuoka2 - fukuoka3 - fukuoka4",
+  "fukuoka3 - sink2",
+  "fukuoka2 - gateway2",
+  "fukuoka4 - relay3",
+]
+other = [
+  "busan3 -- sea1 -- sea2 -- sea3 -- jeju4",
+  "busan4 -- sea4 -- sea5 -- sea6 -- sea7 -- sea8 -- osaka1",
+  "osaka1 -- sea9 -- fukuoka1",
+  "seoul6 - busan5",
+]
 
 [policy.host]
-  size = 1400
-  bytes = 25000000
-  rate = "1Gbps"
-  on = 0.2
-  off = 4.8
+size = 1400
+byte = 25000000
+rate = "1Gbps"
+on = 0.2
+off = 4.8
 
 [policy.relay]
-  mode = "queue"
-  max = 100
+max_connections = 1
+mode = "queue"
+max = 100
 
-[policy."host-router"]
-  size = 1400
-  rate = "10Gbps"
-  delay = "2ms"
+[policy.link."host-router"]
+rate = "10Gbps"
+delay = "2ms"
 
-[policy."gateway-router"]
-  rate = "10Gbps"
-  delay = "2ms"
+[policy.link."gateway-router"]
+rate = "10Gbps"
+delay = "2ms"
 
-[policy."relay-router"]
-  rate = "200Mbps"
-  delay = "2ms"
+[policy.link."relay-router"]
+rate = "200Mbps"
+delay = "2ms"
 
-[policy."sink-router"]
-  rate = "1Gbps"
-  delay = "40ms"
+[policy.link."sink-router"]
+rate = "1Gbps"
+delay = "40ms"
 
-[[application]]
-  type = "OnOff"
-  node = "host1"
-  address = "225.1.2.5"
-  start = 2.0
-  stop = 30.0
+[policy.link."router-router"]
+rate = "10Gbps"
+delay = "2ms"
 
 [[application]]
-  type = "PacketSink"
-  node = "sink1"
-  address = "225.1.2.5"
-  start = 10.0
-  stop = 20.0
+type = "OnOff"
+node = "host1"
+address = "225.1.2.5"
+start = 2.0
+stop = 30.0
 
 [[application]]
-  type = "PacketSink"
-  node = "sink2"
-  address = "225.1.2.5"
-  start = 11.0
-  stop = 20.0
+type = "PacketSink"
+node = "sink1"
+address = "225.1.2.5"
+start = 10.0
+stop = 20.0
 
 [[application]]
-  type = "PacketSink"
-  node = "sink3"
-  address = "225.1.2.5"
-  start = 12.0
-  stop = 20.0
+type = "PacketSink"
+node = "sink2"
+address = "225.1.2.5"
+start = 11.0
+stop = 20.0
 
 [[application]]
-  type = "PacketSink"
-  node = "sink4"
-  address = "225.1.2.5"
-  start = 13.0
-  stop = 20.0
+type = "PacketSink"
+node = "sink3"
+address = "225.1.2.5"
+start = 12.0
+stop = 20.0
 
 [[application]]
-  type = "PacketSink"
-  node = "sink5"
-  address = "225.1.2.5"
-  start = 14.0
-  stop = 20.0
+type = "PacketSink"
+node = "sink4"
+address = "225.1.2.5"
+start = 13.0
+stop = 20.0
+
+[[application]]
+type = "PacketSink"
+node = "sink5"
+address = "225.1.2.5"
+start = 14.0
+stop = 20.0
+

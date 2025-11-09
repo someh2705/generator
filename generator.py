@@ -20,19 +20,41 @@ class AppConfig:
 
 
 @dataclass
+class HostPolicy:
+    size: int
+    byte: int
+    rate: str
+    on: float
+    off: float
+
+
+@dataclass
+class RelayPolicy:
+    max_connections: int
+    mode: str
+    max: int
+
+
+@dataclass
+class LinkPolicy:
+    rate: str
+    delay: str
+
+
+@dataclass
 class ScenarioPolicy:
-    max_connection: int
+    host_policy: HostPolicy
+    relay_policy: RelayPolicy
+    link_policy: Dict[Tuple[str, str], LinkPolicy]
 
 
 class ScenarioGenerator:
     def __init__(self, meta):
         with open(meta, "rb") as f:
             config = addict.Dict(tomllib.load(f))
-            self.graph, self.mgraph = self._parse_topology(config)
             self.policy = self._parse_policy(config)
+            self.graph, self.mgraph = self._parse_topology(config)
             self.application = self._parse_application(config)
-
-            ic(self.policy)
 
     def _parse_topology(self, config) -> Tuple[nx.Graph, nx.Graph]:
         G = nx.Graph()
@@ -46,7 +68,15 @@ class ScenarioGenerator:
                     v = node_and_links[index + 2]
                     e = node_and_links[index + 1]
 
-                    G.add_edge(u, v, is_multicast_enabled=e == " - ", subnet=f"{10 + k}.{10 + j}.{i + 1}.0")
+                    policy = self.policy.link_policy[(self._node_type(u), self._node_type(v))]
+                    d = {
+                        "is_multicast_enabled": e == " - ",
+                        "subnet": f"{10 + k}.{10 + j}.{i + 1}.0",
+                        "rate": policy.rate,
+                        "delay": policy.delay,
+                    }
+
+                    G.add_edge(u, v, **d)
 
         def is_multicast_enabled(u, v):
             return G[u][v]["is_multicast_enabled"]
@@ -58,5 +88,30 @@ class ScenarioGenerator:
             AppConfig(app.type, Node(app.node), Address(app.address), app.start, app.stop) for app in config.application
         ]
 
-    def _parse_policy(self, config):
-        return ScenarioPolicy(config["policy"]["relay"]["max_connection"])
+    def _node_type(self, node) -> str:
+        if str.startswith(node, "host"):
+            return "host"
+        elif str.startswith(node, "sink"):
+            return "sink"
+        elif str.startswith(node, "relay"):
+            return "relay"
+        elif str.startswith(node, "gateway"):
+            return "gateway"
+        else:
+            return "router"
+
+    def _parse_policy(self, config) -> ScenarioPolicy:
+        policy = config.policy
+        host = policy.host
+        relay = policy.relay
+        link = policy.link
+        host_policy = HostPolicy(host.size, host.byte, host.rate, host.on, host.off)
+        relay_policy = RelayPolicy(relay.max_connections, relay.mode, relay.max)
+        link_policy = {}
+        for key, data in link.items():
+            u, v = key.split("-")
+            _policy = LinkPolicy(data.rate, data.delay)
+            link_policy[(u, v)] = _policy
+            link_policy[(v, u)] = _policy
+
+        return ScenarioPolicy(host_policy, relay_policy, link_policy)

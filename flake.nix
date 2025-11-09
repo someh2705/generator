@@ -7,11 +7,17 @@
     flake-utils.url = "github:numtide/flake-utils";
   };
 
-  outputs = { self, nixpkgs, nixpkgs-unstable, flake-utils, ... }:
-    flake-utils.lib.eachDefaultSystem (system:
-      let
-        pkgs = import nixpkgs { inherit system; };
-        unstable = import nixpkgs-unstable { inherit system; };
+  outputs = {
+    self,
+    nixpkgs,
+    nixpkgs-unstable,
+    flake-utils,
+    ...
+  }:
+    flake-utils.lib.eachDefaultSystem (
+      system: let
+        pkgs = import nixpkgs {inherit system;};
+        unstable = import nixpkgs-unstable {inherit system;};
 
         devTools = with unstable; [
           uv
@@ -21,25 +27,28 @@
           watchexec
         ];
 
-        python = unstable.python3.withPackages (ps: with ps; [
-          pyyaml
-          addict
-          networkx
-          icecream
+        python = unstable.python3.withPackages (
+          ps:
+            with ps; [
+              pyyaml
+              addict
+              networkx
+              matplotlib
+              icecream
 
-          python-lsp-server
-          python-lsp-ruff
-        ]);
-
-      in
-      {
+              python-lsp-server
+              python-lsp-ruff
+            ]
+        );
+      in {
         devShells.default = pkgs.mkShell {
           nativeBuildInputs = devTools;
-          buildInputs = [ python ];
+          buildInputs = [python];
 
           shellHook = ''
             export PYTHONPATH=$PYTHONPATH:${python}/${python.sitePackages}
           '';
         };
-      });
+      }
+    );
 }

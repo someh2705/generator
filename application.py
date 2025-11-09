@@ -24,18 +24,20 @@ class SinkApp:
 class RelayApp:
     id: AppId
     node: Node
+    source_id: AppId
 
 
 @dataclass
 class GatewayApp:
     id: AppId
     node: Node
+    relay_id: AppId
     sinks: List[AppId]
 
 
 @dataclass
 class Tunnel:
-    host_id: AppId
+    source_id: AppId
     relay_id: AppId
     gateway_id: AppId
 
@@ -46,7 +48,7 @@ counter = 0
 def _create_id(prefix: str) -> AppId:
     global counter
     counter += 1
-    return f"{prefix}#{counter}"
+    return AppId(f"{prefix}#{counter}")
 
 
 def create_host(app: AppConfig) -> HostApp:
@@ -59,14 +61,18 @@ def create_sink(app: AppConfig) -> SinkApp:
     return SinkApp(id, app.node, app.address)
 
 
-def create_relay(node: Node) -> RelayApp:
+def create_relay(node: Node, source_id: AppId) -> RelayApp:
     id = _create_id("relay")
-    return RelayApp(id, node)
+    return RelayApp(id, node, source_id)
 
 
-def create_gateway(node: Node) -> GatewayApp:
+def create_gateway(node: Node, relay_id: AppId) -> GatewayApp:
     id = _create_id("gateway")
-    return GatewayApp(id, node, [])
+    return GatewayApp(id, node, relay_id, [])
+
+
+def create_tunnel(source_id: AppId, relay_id: AppId, gateway_id: AppId) -> Tunnel:
+    return Tunnel(source_id, relay_id, gateway_id)
 
 
 AppType = TypeVar("AppType", HostApp, SinkApp, RelayApp, GatewayApp)

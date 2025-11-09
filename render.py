@@ -43,6 +43,8 @@ class ScenarioRender:
             spec["time"] = time
             spec["multicast_routes"] = self._multicast_routes(scenario)
 
+        return scenarios
+
     def _subnet(self, edge) -> str:
         return self.graph[edge[0]][edge[1]]["subnet"]
 
@@ -62,14 +64,14 @@ class ScenarioRender:
                 paths.append(nx.shortest_path(self.mgraph, host.node, sink.node))
 
         for tunnel in scenario.snapshot.running_tunnels:
-            host = scenario.snapshot.running_hosts[tunnel.host_id]
-            relay = scenario.snapshot.running_relays[tunnel.relay_id]
-            gateway = scenario.snapshot.running_gateways[tunnel.gateway_id]
+            source = scenario.snapshot.resolve(tunnel.source_id)
+            relay = scenario.snapshot.resolve(tunnel.relay_id)
+            gateway = scenario.snapshot.resolve(tunnel.gateway_id)
 
-            paths.append(nx.shortest_path(self.mgraph, host.node, relay.node))
+            paths.append(nx.shortest_path(self.mgraph, source.node, relay.node))
 
             for sink_id in gateway.sinks:
-                sink = scenario.snapshot.running_sinks[sink_id]
+                sink = scenario.snapshot.resolve(sink_id)
                 paths.append(nx.shortest_path(self.mgraph, gateway.node, sink.node))
 
-        ic(scenario.time, paths)
+        ic(paths)
