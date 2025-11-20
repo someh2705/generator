@@ -30,6 +30,8 @@
         python = unstable.python3.withPackages (
           ps:
             with ps; [
+              scipy
+              numpy
               pyyaml
               addict
               networkx
